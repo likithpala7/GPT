@@ -6,14 +6,14 @@ from tqdm import tqdm
 
 # hyperparams
 batch_size = 64
-block_size = 512
+block_size = 256
 max_iters = 5000
 learning_rate = 3e-4
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-eval_iters = 100
+eval_iters = 500
 n_embd = 384
 n_heads = 6
-n_layer = 5
+n_layer = 6
 dropout = 0.2
 # ------------
 
@@ -172,34 +172,39 @@ class BigramLanguageModel(nn.Module):
             idx = torch.cat((idx, idx_next), dim=1) # appending prediction
         return idx
     
-model = BigramLanguageModel()
-m = model.to(device)
+def checkpoint(model, filename):
+    torch.save(model.state_dict(), filename)
 
-# create optimizer
-optimizer = torch.optim.AdamW(m.parameters(), lr=1e-3)
-train_loss = []
-val_loss = []
-for iter in tqdm(range(max_iters)):
+def resume(model, filename):
+    model.load_state_dict(torch.load(filename))
 
-    if iter % eval_iters == 0:
-        losses = estimate_loss()
-        train_loss.append(losses['train'])
-        val_loss.append(losses['val'])
-        print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+if __name__ == '__main__':
 
-    # sample a batch of data
-    xb, yb = get_batch('train')
+    model = BigramLanguageModel()
+    m = model.to(device)
 
-    # evaluate the loss
-    logits, loss = model(xb, yb)
-    optimizer.zero_grad(set_to_none=True)
-    loss.backward()
-    optimizer.step()
+    # create optimizer
+    optimizer = torch.optim.AdamW(m.parameters(), lr=1e-3)
+    train_loss = []
+    val_loss = []
+    for iter in tqdm(range(max_iters)):
 
-plt.plot(train_loss)
-plt.plot(val_loss)
-plt.show()
+        if iter % eval_iters == 0:
+            checkpoint(m, "gpt_model.pth")
+            losses = estimate_loss()
+            train_loss.append(losses['train'])
+            val_loss.append(losses['val'])
+            print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}\n")
 
-context = torch.zeros((1, 1), dtype=torch.long, device=device)
-with open("out.txt", "a") as f:
-    f.write(decode(m.generate(context, max_new_tokens=10000)[0].tolist()))
+        # sample a batch of data
+        xb, yb = get_batch('train')
+
+        # evaluate the loss
+        logits, loss = model(xb, yb)
+        optimizer.zero_grad(set_to_none=True)
+        loss.backward()
+        optimizer.step()
+
+    plt.plot(train_loss)
+    plt.plot(val_loss)
+    plt.show()

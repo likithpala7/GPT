@@ -1,0 +1,6 @@
+./.gitignore.swp
+./gpt_model.pth
+./input.txt
+./out.txt
+./gpt-dev-checkpoint.ipynb
+./v2.cpython-211.pyc
